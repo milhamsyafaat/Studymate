@@ -1,0 +1,9 @@
+{
+  "appId": "com.studymate.app",
+  "appName": "StudyMate",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "allowNavigation": ["api.anthropic.com"]
+  }
+}
