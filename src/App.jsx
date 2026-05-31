@@ -271,15 +271,22 @@ export default function App() {
 
   const exportTasks = () => {
     const pendingTasks = tasks.filter((t) => !t.done).sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
-    if (pendingTasks.length === 0) { alert("Gak ada tugas pending buat di-share ✅"); return; }
     const lines = pendingTasks.map((t) => {
       const d = getDaysLeft(t.deadline);
       const lbl = d < 0 ? "🔴 Terlambat" : d === 0 ? "⚠️ Hari ini!" : `📅 ${d}h lagi`;
       const subs = (t.subtasks || []).filter((s) => !s.done).map((s) => `  · ${s.text}`).join("\n");
       return `${t.title} (${t.subject}) — ${lbl}${subs ? "\n" + subs : ""}`;
     });
-    const text = `📋 *TUGAS SAYA*\n${lines.join("\n\n")}`;
-    navigator.clipboard?.writeText(text).then(() => alert("Tugas udah di-copy! Tinggal paste ke chat ✅")).catch(() => {});
+    const text = `📋 *TUGAS SAYA*\n${lines.join("\n\n")}\n\n${tasks.filter((t) => t.done).length} selesai dari ${tasks.length} tugas`;
+    navigator.clipboard?.writeText(text).catch(() => {});
+    const data = { tasks, stats, pomoCount, subjects, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `studymate-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const importTasks = (e) => {
@@ -976,22 +983,7 @@ export default function App() {
                   style={{ ...S.btn("#6a5a88", 10), flex: 1, padding: "5px 10px", fontSize: 10 }}
                   onClick={exportTasks}
                 >
-                  📋 Share Tugas
-                </button>
-                <button
-                  style={{ ...S.btn("#6a5a88", 10), flex: 1, padding: "5px 10px", fontSize: 10 }}
-                  onClick={() => {
-                    const data = { tasks, stats, pomoCount, subjects, exportedAt: new Date().toISOString() };
-                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `studymate-backup-${new Date().toISOString().slice(0, 10)}.json`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                >
-                  💾 Backup
+                  📋 Share + Backup
                 </button>
                 <button
                   style={{ ...S.btn("#6a5a88", 10), flex: 1, padding: "5px 10px", fontSize: 10 }}
