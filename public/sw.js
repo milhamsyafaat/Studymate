@@ -1,4 +1,4 @@
-const CACHE = "studymate-v1";
+const CACHE = "studymate-v2";
 const URLS = ["."];
 
 self.addEventListener("install", (e) => {
