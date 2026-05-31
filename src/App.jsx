@@ -84,6 +84,10 @@ export default function App() {
   const [pomoCount, setPomoCount] = useState(() => load(POMO_KEY, 0));
   const [now, setNow] = useState(new Date());
   const timerRef = useRef(null);
+  const formRef = useRef(null);
+  const importRef = useRef(null);
+
+  useEffect(() => { if (showForm) formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }, [showForm]);
 
   useEffect(() => save(TASKS_KEY, tasks), [tasks]);
   useEffect(() => save(STATS_KEY, stats), [stats]);
@@ -103,6 +107,19 @@ export default function App() {
             setPomoRun(false);
             setPomoCount((c) => c + 1);
             setStats((st) => ({ ...st, pomoTotal: st.pomoTotal + 1 }));
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification("StudyMate", { body: "Sesi fokus selesai! 🎉", icon: "./icon-192.png" });
+            }
+            try { new AudioContext().close(); } catch {}
+            try {
+              const ctx = new AudioContext();
+              const o = ctx.createOscillator();
+              o.type = "sine";
+              o.frequency.value = 880;
+              o.connect(ctx.destination);
+              o.start();
+              o.stop(ctx.currentTime + 0.5);
+            } catch {}
             return 0;
           }
           return s - 1;
@@ -115,6 +132,12 @@ export default function App() {
   useEffect(() => {
     const i = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(i);
+  }, []);
+
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
   }, []);
 
   const pending = tasks.filter((t) => !t.done);
@@ -136,15 +159,17 @@ export default function App() {
           ? true
           : filter === "aktif"
             ? !t.done
-            : filter === "mendesak"
-              ? !t.done &&
-                getDaysLeft(t.deadline) <= 3 &&
-                getDaysLeft(t.deadline) >= 0
-              : filter === "terlambat"
-                ? !t.done && getDaysLeft(t.deadline) < 0
-                : filter === "selesai"
-                  ? t.done
-                  : true;
+            : filter === "mingguini"
+              ? !t.done && getDaysLeft(t.deadline) >= 0 && getDaysLeft(t.deadline) <= 7
+              : filter === "mendesak"
+                ? !t.done &&
+                  getDaysLeft(t.deadline) <= 3 &&
+                  getDaysLeft(t.deadline) >= 0
+                : filter === "terlambat"
+                  ? !t.done && getDaysLeft(t.deadline) < 0
+                  : filter === "selesai"
+                    ? t.done
+                    : true;
       return matchSearch && matchFilter;
     })
     .sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
@@ -242,6 +267,39 @@ export default function App() {
     if (subjects.length <= 1) return;
     setSubjects((s) => s.filter((x) => x !== name));
     if (form.subject === name) setForm((f) => ({ ...f, subject: subjects[0] }));
+  };
+
+  const exportTasks = () => {
+    const data = { tasks, stats, pomoCount, subjects, exportedAt: new Date().toISOString() };
+    const json = JSON.stringify(data, null, 2);
+    navigator.clipboard?.writeText(json).catch(() => {});
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `studymate-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importTasks = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.tasks) setTasks(data.tasks);
+        if (data.stats) setStats(data.stats);
+        if (data.subjects) setSubjects(data.subjects);
+        if (typeof data.pomoCount === "number") setPomoCount(data.pomoCount);
+        alert("Data berhasil diimport ✅");
+      } catch {
+        alert("File tidak valid ❌");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
   };
 
   const pomoProgress = 1 - pomoSec / (durasi * 60);
@@ -693,6 +751,7 @@ export default function App() {
           <div>
             {showForm && (
               <div
+                ref={formRef}
                 style={{
                   ...S.card,
                   borderColor: "#a78bfa30",
@@ -881,7 +940,7 @@ export default function App() {
                   paddingBottom: 4,
                 }}
               >
-                {["aktif", "mendesak", "terlambat", "selesai", "semua"].map(
+                {["aktif", "mingguini", "mendesak", "terlambat", "selesai", "semua"].map(
                   (f) => (
                     <button
                       key={f}
@@ -911,6 +970,27 @@ export default function App() {
                     ＋ BARU
                   </button>
                 )}
+              </div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                <button
+                  style={{ ...S.btn("#6a5a88", 10), flex: 1, padding: "5px 10px", fontSize: 10 }}
+                  onClick={exportTasks}
+                >
+                  💾 Export
+                </button>
+                <button
+                  style={{ ...S.btn("#6a5a88", 10), flex: 1, padding: "5px 10px", fontSize: 10 }}
+                  onClick={() => importRef.current?.click()}
+                >
+                  📂 Import
+                </button>
+                <input
+                  ref={importRef}
+                  type="file"
+                  accept=".json"
+                  style={{ display: "none" }}
+                  onChange={importTasks}
+                />
               </div>
             </div>
             {filtered.length === 0 ? (
