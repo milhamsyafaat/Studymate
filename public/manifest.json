@@ -1,7 +1,7 @@
 {
-  "name": "StudyMate - AI Study Assistant",
+  "name": "StudyMate — Task Tracker",
   "short_name": "StudyMate",
-  "description": "AI study assistant with tasks, pomodoro, and chat",
+  "description": "Task tracker with pomodoro and study stats",
   "start_url": ".",
   "display": "standalone",
   "orientation": "portrait",

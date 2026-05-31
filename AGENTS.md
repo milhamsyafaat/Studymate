@@ -1,6 +1,6 @@
-# StudyMate — AI Study Assistant (Mobile PWA + Android)
+# StudyMate — Task Tracker (Mobile PWA + Android)
 
-React + Vite PWA with Capacitor for Android, and a classic SPA for managing tasks, Pomodoro, and study stats.
+React + Vite PWA with Capacitor for Android, a classic SPA for managing tasks, Pomodoro, and study stats.
 
 ## Stack
 
@@ -8,7 +8,6 @@ React + Vite PWA with Capacitor for Android, and a classic SPA for managing task
 - **Build:** Vite 6 with `base: './'` (relative paths — works for both PWA hosting and Capacitor WebView)
 - **Mobile:** PWA (manifest.json + cache-first SW) and Capacitor Android native (`android/`)
 - **Persistence:** localStorage (4 keys: `sm_tasks_v2`, `sm_stats_v2`, `sm_pomo_v2`, `sm_subjects_v2`)
-- **AI Chat (planned):** `.env.example` references `VITE_ANTHROPIC_API_KEY`; `capacitor.config.json` allows navigation to `api.anthropic.com`. No chat UI exists yet.
 
 ## Commands
 
@@ -31,7 +30,7 @@ Push to `main` → GitHub Actions builds `dist/` and deploys to GitHub Pages via
 src/
   main.jsx     Entry point + service worker register
   App.jsx      Semua komponen UI + state dalam satu file (1580 baris, 4 tab)
-  utils.js     Helpers: load/save localStorage, fmtMsg, getDaysLeft
+  utils.js     Helpers: load/save localStorage, getDaysLeft, fmt2
   components/  (empty — belum dipakai)
 public/
   manifest.json  PWA manifest (display: standalone, portrait)

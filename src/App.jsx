@@ -56,7 +56,7 @@ const DBadge = ({ deadline }) => {
 export default function App() {
   const [tasks, setTasks] = useState(() => load(TASKS_KEY, []));
   const [stats, setStats] = useState(() =>
-    load(STATS_KEY, { pomoTotal: 0, tasksDone: 0, streak: 0, lastDate: "" })
+    load(STATS_KEY, { pomoTotal: 0, tasksDone: 0 })
   );
   const [subjects, setSubjects] = useState(() =>
     load(SUBJECTS_KEY, DEFAULT_SUBJECTS)
@@ -360,7 +360,7 @@ export default function App() {
   const TABS = [
     { id: "dashboard", icon: "⬡", label: "Home" },
     { id: "tasks", icon: "✦", label: "Tugas" },
-    { id: "pomodoro", icon: "⚡", label: "Kompe" },
+    { id: "pomodoro", icon: "⚡", label: "Fokus" },
     { id: "stats", icon: "▦", label: "Statistik" },
   ];
 
@@ -387,7 +387,7 @@ export default function App() {
             ◈ STUDYMATE
           </div>
           <div style={{ fontSize: 9, color: "#6a5a88", letterSpacing: "0.12em" }}>
-            AI STUDY ASSISTANT
+            TASK TRACKER
           </div>
         </div>
         {(urgent.length > 0 || overdue.length > 0) && (
@@ -471,7 +471,7 @@ export default function App() {
               {[
                 { label: "Pending", val: pending.length, c: "#ff5a5a" },
                 { label: "Selesai", val: done.length, c: "#6ddb8e" },
-                { label: "Sesi Kompe", val: stats.pomoTotal, c: "#ff8c42" },
+                { label: "Sesi Fokus", val: stats.pomoTotal, c: "#ff8c42" },
               ].map((x) => (
                 <div
                   key={x.label}
@@ -672,7 +672,7 @@ export default function App() {
                 style={{ ...S.btn("#ff8c42"), textAlign: "left" }}
                 onClick={() => setView("pomodoro")}
               >
-                ⚡ Mode Kompe
+                ⚡ Mode Fokus
               </button>
               <button
                 style={{ ...S.btn("#6ddb8e"), textAlign: "left" }}
@@ -1143,7 +1143,7 @@ export default function App() {
                 marginBottom: 6,
               }}
             >
-              ⚡ MODE KOMPE — GAS FOKUS!
+              ⚡ MODE FOKUS — GAS BELAJAR!
             </div>
             <div
               style={{
@@ -1342,7 +1342,7 @@ export default function App() {
                 { label: "Selesai", val: done.length, c: "#6ddb8e" },
                 { label: "Pending", val: pending.length, c: "#ff5a5a" },
                 {
-                  label: "Sesi Kompe",
+                  label: "Sesi Fokus",
                   val: stats.pomoTotal,
                   c: "#ff8c42",
                 },
