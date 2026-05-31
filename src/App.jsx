@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from "react";
-import { getDaysLeft, load, save, fmt2, fmtMsg } from "./utils.js";
+﻿import { useState, useEffect, useRef } from "react";
+import { getDaysLeft, load, save, fmt2 } from "./utils.js";
 
 const TASKS_KEY = "sm_tasks_v2";
-const CHAT_KEY = "sm_chat_v2";
 const STATS_KEY = "sm_stats_v2";
 const POMO_KEY = "sm_pomo_v2";
 const SUBJECTS_KEY = "sm_subjects_v2";
@@ -13,8 +12,6 @@ const DEFAULT_SUBJECTS = [
 ];
 
 const PRIORITIES = ["Tinggi", "Sedang", "Rendah"];
-const POMO_WORK = 25 * 60;
-const POMO_BREAK = 5 * 60;
 
 const PBadge = ({ p }) => {
   const c = { Tinggi: "#ff5a5a", Sedang: "#ffb347", Rendah: "#6ddb8e" }[p];
@@ -41,7 +38,7 @@ const DBadge = ({ deadline }) => {
   const d = getDaysLeft(deadline);
   const [c, lbl] =
     d < 0
-      ? ["#666", "Terlambat"]
+      ? ["#a090b8", "Terlambat"]
       : d === 0
         ? ["#ff5a5a", "Hari ini!"]
         : d <= 2
@@ -56,19 +53,8 @@ const DBadge = ({ deadline }) => {
   );
 };
 
-const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || "";
-
 export default function App() {
   const [tasks, setTasks] = useState(() => load(TASKS_KEY, []));
-  const [chat, setChat] = useState(() =>
-    load(CHAT_KEY, [
-      {
-        role: "assistant",
-        content:
-          "Halo! Gue **StudyMate**, asisten belajar lo 🎓\n\nGue bisa:\n- Bantu ngerjain soal & jelasin materi\n- Ingetin tugas yang mendesak\n- Kasih tips manajemen waktu\n- Temenin sesi belajar Pomodoro\n\nMau mulai dari mana?",
-      },
-    ])
-  );
   const [stats, setStats] = useState(() =>
     load(STATS_KEY, { pomoTotal: 0, tasksDone: 0, streak: 0, lastDate: "" })
   );
@@ -76,8 +62,6 @@ export default function App() {
     load(SUBJECTS_KEY, DEFAULT_SUBJECTS)
   );
   const [view, setView] = useState("dashboard");
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("aktif");
   const [showForm, setShowForm] = useState(false);
@@ -94,23 +78,21 @@ export default function App() {
   const [showManageSubjects, setShowManageSubjects] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState("");
 
-  const [pomoMode, setPomoMode] = useState("work");
-  const [pomoSec, setPomoSec] = useState(POMO_WORK);
+  const [durasi, setDurasi] = useState(30);
+  const [pomoSec, setPomoSec] = useState(30 * 60);
   const [pomoRun, setPomoRun] = useState(false);
   const [pomoCount, setPomoCount] = useState(() => load(POMO_KEY, 0));
+  const [now, setNow] = useState(new Date());
   const timerRef = useRef(null);
-  const chatEndRef = useRef(null);
-  const inputRef = useRef(null);
 
   useEffect(() => save(TASKS_KEY, tasks), [tasks]);
-  useEffect(() => save(CHAT_KEY, chat.slice(-60)), [chat]);
   useEffect(() => save(STATS_KEY, stats), [stats]);
   useEffect(() => save(POMO_KEY, pomoCount), [pomoCount]);
   useEffect(() => save(SUBJECTS_KEY, subjects), [subjects]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chat, loading]);
+    if (!pomoRun) setPomoSec(durasi * 60);
+  }, [durasi, pomoRun]);
 
   useEffect(() => {
     if (pomoRun) {
@@ -119,15 +101,8 @@ export default function App() {
           if (s <= 1) {
             clearInterval(timerRef.current);
             setPomoRun(false);
-            if (pomoMode === "work") {
-              setPomoCount((c) => c + 1);
-              setStats((st) => ({ ...st, pomoTotal: st.pomoTotal + 1 }));
-              setPomoMode("break");
-              setPomoSec(POMO_BREAK);
-            } else {
-              setPomoMode("work");
-              setPomoSec(POMO_WORK);
-            }
+            setPomoCount((c) => c + 1);
+            setStats((st) => ({ ...st, pomoTotal: st.pomoTotal + 1 }));
             return 0;
           }
           return s - 1;
@@ -135,7 +110,12 @@ export default function App() {
       }, 1000);
     } else clearInterval(timerRef.current);
     return () => clearInterval(timerRef.current);
-  }, [pomoRun, pomoMode]);
+  }, [pomoRun]);
+
+  useEffect(() => {
+    const i = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(i);
+  }, []);
 
   const pending = tasks.filter((t) => !t.done);
   const done = tasks.filter((t) => t.done);
@@ -168,7 +148,6 @@ export default function App() {
       return matchSearch && matchFilter;
     })
     .sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
-
   const saveTask = () => {
     if (!form.title.trim() || !form.deadline) return;
     if (editId) {
@@ -265,87 +244,8 @@ export default function App() {
     if (form.subject === name) setForm((f) => ({ ...f, subject: subjects[0] }));
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input.trim();
-    setInput("");
-    const newChat = [...chat, { role: "user", content: userMsg }];
-    setChat(newChat);
-    setLoading(true);
-
-    const taskCtx =
-      pending.length > 0
-        ? `\nTugas pending user:\n${pending
-            .map(
-              (t) =>
-                `- [${t.priority}] ${t.title} (${t.subject}) | Deadline: ${t.deadline} | ${getDaysLeft(t.deadline) < 0 ? "TERLAMBAT" : getDaysLeft(t.deadline) + "h lagi"}${t.notes ? ` | ${t.notes}` : ""}`
-            )
-            .join("\n")}`
-        : "\nUser belum punya tugas aktif.";
-
-    const sys = `Kamu adalah StudyMate, asisten belajar pribadi untuk mahasiswa Indonesia semester 4. Kamu seperti kakak kelas yang pintar dan supportif. Bahasa santai, gaul, pakai emoji secukupnya, informatif dan padat.
-Kemampuanmu:
-1. Jelasin materi kuliah step-by-step
-2. Bantu kerjain soal matematika, pemrograman, fisika, dll
-3. Kasih tips belajar & manajemen waktu
-4. Review tugas yang mendesak/terlambat
-5. Bikin jadwal belajar harian/mingguan
-6. Motivasi dan support emosional
-${taskCtx}
-Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi berguna. Untuk materi/soal, gunakan struktur yang jelas.`;
-
-    try {
-      if (!ANTHROPIC_KEY) {
-        setChat((c) => [
-          ...c,
-          {
-            role: "assistant",
-            content:
-              "🔑 **API key belum diatur!**\n\nBuat file `.env` di root project, lalu isi:\n```\nVITE_ANTHROPIC_API_KEY=sk-ant-...\n```\nDapetin key di https://console.anthropic.com",
-          },
-        ]);
-        setLoading(false);
-        return;
-      }
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": ANTHROPIC_KEY,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: sys,
-          messages: newChat.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
-      });
-      const data = await res.json();
-      const reply =
-        data.content?.map((b) => b.text || "").join("") ||
-        "Error nih, coba lagi ya!";
-      setChat((c) => [...c, { role: "assistant", content: reply }]);
-    } catch {
-      setChat((c) => [
-        ...c,
-        {
-          role: "assistant",
-          content: "Koneksi gangguan 😥 coba lagi!",
-        },
-      ]);
-    }
-    setLoading(false);
-  };
-
-  const pomoProgress =
-    pomoMode === "work" ? 1 - pomoSec / POMO_WORK : 1 - pomoSec / POMO_BREAK;
-  const cx = 54,
-    cy = 54,
-    r = 46;
+  const pomoProgress = 1 - pomoSec / (durasi * 60);
+  const cx = 54, cy = 54, r = 46;
   const circ = 2 * Math.PI * r;
   const dash = circ * pomoProgress;
 
@@ -360,7 +260,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
   const S = {
     app: {
       minHeight: "100vh",
-      background: "#080812",
+      background: "#0d0d1e",
       color: "#ddd6f3",
       fontFamily: "'IBM Plex Mono',monospace",
       display: "flex",
@@ -370,8 +270,8 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
     },
     hdr: {
       padding: "14px 20px",
-      borderBottom: "1px solid #181828",
-      background: "#0b0b18",
+      borderBottom: "1px solid #2a2a40",
+      background: "#12122a",
       display: "flex",
       alignItems: "center",
       gap: 10,
@@ -381,8 +281,8 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
     },
     nav: {
       display: "flex",
-      borderBottom: "1px solid #181828",
-      background: "#0b0b18",
+      borderBottom: "1px solid #2a2a40",
+      background: "#12122a",
       position: "sticky",
       top: 55,
       zIndex: 99,
@@ -393,7 +293,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
       background: "none",
       border: "none",
       borderBottom: `2px solid ${a ? "#a78bfa" : "transparent"}`,
-      color: a ? "#a78bfa" : "#444",
+      color: a ? "#a78bfa" : "#6a5a88",
       cursor: "pointer",
       fontSize: 11,
       fontFamily: "'IBM Plex Mono',monospace",
@@ -406,23 +306,23 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
     }),
     main: { flex: 1, overflowY: "auto", padding: "16px 14px", paddingBottom: 80 },
     card: {
-      background: "#0e0e1c",
-      border: "1px solid #1c1c30",
+      background: "#16162a",
+      border: "1px solid #2a2a40",
       borderRadius: 10,
       padding: "14px",
       marginBottom: 10,
     },
     lbl: {
       fontSize: 10,
-      color: "#444",
+      color: "#a898c8",
       letterSpacing: "0.14em",
       textTransform: "uppercase",
       marginBottom: 4,
       fontWeight: 700,
     },
     inp: {
-      background: "#080812",
-      border: "1px solid #1c1c30",
+      background: "#0d0d1e",
+      border: "1px solid #2a2a40",
       borderRadius: 6,
       color: "#ddd6f3",
       padding: "9px 11px",
@@ -433,8 +333,8 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
       boxSizing: "border-box",
     },
     sel: {
-      background: "#080812",
-      border: "1px solid #1c1c30",
+      background: "#0d0d1e",
+      border: "1px solid #2a2a40",
       borderRadius: 6,
       color: "#ddd6f3",
       padding: "9px 11px",
@@ -458,11 +358,10 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
   };
 
   const TABS = [
-    { id: "dashboard", icon: "⬡", label: "Home" },
-    { id: "tasks", icon: "✦", label: "Tugas" },
-    { id: "pomodoro", icon: "◉", label: "Fokus" },
-    { id: "stats", icon: "▦", label: "Statistik" },
-    { id: "chat", icon: "◈", label: "AI Chat" },
+    { id: "dashboard", icon: "\u2B21", label: "Home" },
+    { id: "tasks", icon: "\u2726", label: "Tugas" },
+    { id: "pomodoro", icon: "\u26A1", label: "Kompe" },
+    { id: "stats", icon: "\u25A6", label: "Statistik" },
   ];
 
   return (
@@ -470,24 +369,24 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700;800&display=swap');
         * { box-sizing:border-box; margin:0; padding:0; }
-        body { background:#080812; }
+        body { background:#0d0d1e; }
         ::-webkit-scrollbar { width:4px; }
-        ::-webkit-scrollbar-track { background:#080812; }
-        ::-webkit-scrollbar-thumb { background:#1c1c30; border-radius:2px; }
+        ::-webkit-scrollbar-track { background:#0d0d1e; }
+        ::-webkit-scrollbar-thumb { background:#2a2a40; border-radius:2px; }
         input[type=date]::-webkit-calendar-picker-indicator { filter:invert(0.4); }
         @keyframes blink { 0%,80%,100%{transform:scale(1);opacity:.5} 40%{transform:scale(1.3);opacity:1} }
         @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
         .msg-in { animation: fadeIn .25s ease; }
-        .task-card:hover { border-color:#2a2a42 !important; }
+        .task-card:hover { border-color:#3a3a55 !important; }
         button:hover { filter:brightness(1.15); }
       `}</style>
 
       <div style={S.hdr}>
         <div>
           <div style={{ fontSize: 17, fontWeight: 800, color: "#a78bfa", letterSpacing: "-0.02em" }}>
-            ◈ STUDYMATE
+            \u25C8 STUDYMATE
           </div>
-          <div style={{ fontSize: 9, color: "#333", letterSpacing: "0.12em" }}>
+          <div style={{ fontSize: 9, color: "#6a5a88", letterSpacing: "0.12em" }}>
             AI STUDY ASSISTANT
           </div>
         </div>
@@ -505,22 +404,22 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                   fontWeight: 700,
                 }}
               >
-                ⚠ {urgent.length} MENDESAK
+                \u26A0 {urgent.length} MENDESAK
               </div>
             )}
             {overdue.length > 0 && (
               <div
                 style={{
-                  background: "#88888818",
-                  border: "1px solid #88888840",
+                  background: "#a090b818",
+                  border: "1px solid #a090b840",
                   borderRadius: 5,
                   padding: "4px 10px",
                   fontSize: 10,
-                  color: "#888",
+                  color: "#a090b8",
                   fontWeight: 700,
                 }}
               >
-                ✕ {overdue.length} TELAT
+                \u2715 {overdue.length} TELAT
               </div>
             )}
           </div>
@@ -546,7 +445,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
             <div
               style={{
                 fontSize: 10,
-                color: "#333",
+                color: "#6a5a88",
                 letterSpacing: "0.14em",
                 marginBottom: 14,
               }}
@@ -572,7 +471,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
               {[
                 { label: "Pending", val: pending.length, c: "#ff5a5a" },
                 { label: "Selesai", val: done.length, c: "#6ddb8e" },
-                { label: "Pomodoro", val: stats.pomoTotal, c: "#a78bfa" },
+                { label: "Sesi Kompe", val: stats.pomoTotal, c: "#ff8c42" },
               ].map((x) => (
                 <div
                   key={x.label}
@@ -589,7 +488,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                   <div
                     style={{
                       fontSize: 9,
-                      color: "#444",
+                      color: "#a898c8",
                       letterSpacing: "0.1em",
                       marginTop: 2,
                       textTransform: "uppercase",
@@ -600,21 +499,20 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                 </div>
               ))}
             </div>
-
             {overdue.length > 0 && (
               <div
-                style={{ ...S.card, borderColor: "#88888830", marginBottom: 14 }}
+                style={{ ...S.card, borderColor: "#a090b830", marginBottom: 14 }}
               >
                 <div
                   style={{
                     fontSize: 10,
-                    color: "#888",
+                    color: "#a090b8",
                     fontWeight: 700,
                     letterSpacing: "0.12em",
                     marginBottom: 10,
                   }}
                 >
-                  ✕ TERLAMBAT — SEGERA SELESAIKAN
+                  \u2715 TERLAMBAT \u2014 SEGERA SELESAIKAN
                 </div>
                 {overdue.map((t) => (
                   <div
@@ -624,13 +522,13 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                       justifyContent: "space-between",
                       alignItems: "center",
                       padding: "8px 0",
-                      borderBottom: "1px solid #181828",
+                      borderBottom: "1px solid #2a2a40",
                     }}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#888" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#a090b8" }}>
                       {t.title}
                     </div>
-                    <div style={{ fontSize: 11, color: "#666" }}>
+                    <div style={{ fontSize: 11, color: "#c8c0e0" }}>
                       {t.subject}
                     </div>
                   </div>
@@ -655,7 +553,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                     marginBottom: 10,
                   }}
                 >
-                  ⚠ DEADLINE MENDESAK (≤3 HARI)
+                  \u26A0 DEADLINE MENDESAK (\u22643 HARI)
                 </div>
                 {urgent.map((t) => (
                   <div
@@ -665,7 +563,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                       justifyContent: "space-between",
                       alignItems: "center",
                       padding: "8px 0",
-                      borderBottom: "1px solid #181828",
+                      borderBottom: "1px solid #2a2a40",
                     }}
                   >
                     <div>
@@ -678,7 +576,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                       >
                         {t.title}
                       </div>
-                      <div style={{ fontSize: 11, color: "#555" }}>
+                      <div style={{ fontSize: 11, color: "#c8c0e0" }}>
                         {t.subject}
                       </div>
                     </div>
@@ -702,24 +600,24 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
               <div
                 style={{
                   fontSize: 10,
-                  color: "#444",
+                  color: "#a898c8",
                   fontWeight: 700,
                   letterSpacing: "0.12em",
                   marginBottom: 12,
                 }}
               >
-                📋 TUGAS AKTIF TERDEKAT
+                \uD83D\uDCCB TUGAS AKTIF TERDEKAT
               </div>
               {pending.length === 0 ? (
                 <div
                   style={{
-                    color: "#333",
+                    color: "#8a7fa0",
                     fontSize: 13,
                     textAlign: "center",
                     padding: "20px 0",
                   }}
                 >
-                  Semua beres! 🎉
+                  Semua beres! \uD83C\uDF89
                 </div>
               ) : (
                 pending
@@ -734,7 +632,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                         display: "flex",
                         justifyContent: "space-between",
                         padding: "9px 0",
-                        borderBottom: "1px solid #111120",
+                        borderBottom: "1px solid #2a2a40",
                       }}
                     >
                       <div style={{ flex: 1 }}>
@@ -748,7 +646,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                           {t.title}
                         </div>
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <span style={{ fontSize: 10, color: "#555" }}>
+                          <span style={{ fontSize: 10, color: "#c8c0e0" }}>
                             {t.subject}
                           </span>
                           <PBadge p={t.priority} />
@@ -768,36 +666,29 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                   setShowForm(true);
                 }}
               >
-                ＋ Tambah Tugas
+                \uFF0B Tambah Tugas
+              </button>
+              <button
+                style={{ ...S.btn("#ff8c42"), textAlign: "left" }}
+                onClick={() => setView("pomodoro")}
+              >
+                \u26A1 Mode Kompe
               </button>
               <button
                 style={{ ...S.btn("#6ddb8e"), textAlign: "left" }}
-                onClick={() => setView("chat")}
-              >
-                ◈ Tanya AI
-              </button>
-              <button
-                style={{ ...S.btn("#ffb347"), textAlign: "left" }}
-                onClick={() => setView("pomodoro")}
-              >
-                ◉ Mulai Fokus
-              </button>
-              <button
-                style={{ ...S.btn("#60b8ff"), textAlign: "left" }}
                 onClick={() => setView("stats")}
               >
-                ▦ Lihat Statistik
+                \u25A6 Lihat Statistik
               </button>
               <button
                 style={{ ...S.btn("#a78bfa"), textAlign: "left" }}
                 onClick={() => setShowManageSubjects(true)}
               >
-                ⚙ Atur Matkul
+                \u2699 Atur Matkul
               </button>
             </div>
           </div>
         )}
-
         {view === "tasks" && (
           <div>
             {showForm && (
@@ -817,7 +708,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                     marginBottom: 14,
                   }}
                 >
-                  {editId ? "✎ EDIT TUGAS" : "＋ TUGAS BARU"}
+                  {editId ? "\u270E EDIT TUGAS" : "\uFF0B TUGAS BARU"}
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
@@ -857,7 +748,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                       {subjects.map((s) => (
                         <option key={s}>{s}</option>
                       ))}
-                      <option value="__add__">➕ Tambah Baru...</option>
+                      <option value="__add__">\u2795 Tambah Baru...</option>
                     </select>
                   </div>
                   <div>
@@ -912,20 +803,20 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                         marginBottom: 5,
                       }}
                     >
-                      <span style={{ fontSize: 12, color: "#555", flex: 1 }}>
-                        • {s.text}
+                      <span style={{ fontSize: 12, color: "#c8c0e0", flex: 1 }}>
+                        \u2022 {s.text}
                       </span>
                       <button
                         onClick={() => removeSubtask(i)}
                         style={{
                           background: "none",
                           border: "none",
-                          color: "#444",
+                          color: "#a898c8",
                           cursor: "pointer",
                           fontSize: 12,
                         }}
                       >
-                        ✕
+                        \u2715
                       </button>
                     </div>
                   ))}
@@ -941,7 +832,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                       style={{ ...S.btn("#a78bfa"), flexShrink: 0 }}
                       onClick={addSubtask}
                     >
-                      ＋
+                      \uFF0B
                     </button>
                   </div>
                 </div>
@@ -954,7 +845,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                     {editId ? "Simpan Perubahan" : "Simpan Tugas"}
                   </button>
                   <button
-                    style={{ ...S.btn("#444") }}
+                    style={{ ...S.btn("#6a5a88") }}
                     onClick={() => {
                       setShowForm(false);
                       setEditId(null);
@@ -978,7 +869,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
             <div style={{ marginBottom: 10 }}>
               <input
                 style={{ ...S.inp, marginBottom: 8 }}
-                placeholder="🔍 Cari tugas..."
+                placeholder={"\uD83D\uDD0D Cari tugas..."}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -995,7 +886,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                     <button
                       key={f}
                       style={{
-                        ...S.btn(filter === f ? "#a78bfa" : "#333", 10),
+                        ...S.btn(filter === f ? "#a78bfa" : "#6a5a88", 10),
                         flexShrink: 0,
                         background:
                           filter === f ? "#a78bfa20" : "transparent",
@@ -1017,22 +908,21 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                     }}
                     onClick={() => setShowForm(true)}
                   >
-                    ＋ BARU
+                    \uFF0B BARU
                   </button>
                 )}
               </div>
             </div>
-
             {filtered.length === 0 ? (
               <div
                 style={{
                   ...S.card,
                   textAlign: "center",
-                  color: "#333",
+                  color: "#8a7fa0",
                   padding: "30px 0",
                 }}
               >
-                <div style={{ fontSize: 20 }}>✦</div>
+                <div style={{ fontSize: 20 }}>\u2726</div>
                 <div style={{ fontSize: 12, marginTop: 8 }}>
                   Tidak ada tugas
                 </div>
@@ -1049,12 +939,12 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                     style={{
                       ...S.card,
                       borderColor: t.done
-                        ? "#1c1c30"
+                        ? "#2a2a40"
                         : getDaysLeft(t.deadline) < 0
-                          ? "#88888830"
+                          ? "#a090b830"
                           : getDaysLeft(t.deadline) <= 2
                             ? "#ff5a5a25"
-                            : "#1c1c30",
+                            : "#2a2a40",
                       opacity: t.done ? 0.5 : 1,
                     }}
                   >
@@ -1071,7 +961,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                           width: 22,
                           height: 22,
                           borderRadius: 5,
-                          border: `1.5px solid ${t.done ? "#6ddb8e" : "#2a2a42"}`,
+                          border: `1.5px solid ${t.done ? "#6ddb8e" : "#3a3a55"}`,
                           background: t.done ? "#6ddb8e20" : "transparent",
                           cursor: "pointer",
                           color: "#6ddb8e",
@@ -1083,7 +973,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                           marginTop: 2,
                         }}
                       >
-                        {t.done && "✓"}
+                        {t.done && "\u2713"}
                       </button>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
@@ -1108,8 +998,8 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                           <span
                             style={{
                               fontSize: 10,
-                              color: "#555",
-                              background: "#141420",
+                              color: "#c8c0e0",
+                              background: "#1e1e34",
                               padding: "2px 7px",
                               borderRadius: 3,
                             }}
@@ -1123,7 +1013,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                           <div
                             style={{
                               fontSize: 11,
-                              color: "#444",
+                              color: "#c8c0e0",
                               marginBottom: subsTotal > 0 ? 8 : 0,
                             }}
                           >
@@ -1145,7 +1035,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                                 style={{
                                   flex: 1,
                                   height: 4,
-                                  background: "#141420",
+                                  background: "#1e1e34",
                                   borderRadius: 2,
                                   overflow: "hidden",
                                 }}
@@ -1159,7 +1049,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                                   }}
                                 />
                               </div>
-                              <span style={{ fontSize: 10, color: "#555" }}>
+                              <span style={{ fontSize: 10, color: "#c8c0e0" }}>
                                 {subsDone}/{subsTotal}
                               </span>
                             </div>
@@ -1179,7 +1069,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                                     width: 16,
                                     height: 16,
                                     borderRadius: 3,
-                                    border: `1.5px solid ${s.done ? "#6ddb8e" : "#2a2a42"}`,
+                                    border: `1.5px solid ${s.done ? "#6ddb8e" : "#3a3a55"}`,
                                     background: s.done
                                       ? "#6ddb8e20"
                                       : "transparent",
@@ -1192,12 +1082,12 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                                     flexShrink: 0,
                                   }}
                                 >
-                                  {s.done && "✓"}
+                                  {s.done && "\u2713"}
                                 </button>
                                 <span
                                   style={{
                                     fontSize: 11,
-                                    color: s.done ? "#444" : "#999",
+                                    color: s.done ? "#a898c8" : "#c8c0e0",
                                     textDecoration: s.done
                                       ? "line-through"
                                       : "none",
@@ -1216,24 +1106,24 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                           style={{
                             background: "none",
                             border: "none",
-                            color: "#444",
+                            color: "#a898c8",
                             cursor: "pointer",
                             fontSize: 13,
                           }}
                         >
-                          ✎
+                          \u270E
                         </button>
                         <button
                           onClick={() => deleteTask(t.id)}
                           style={{
                             background: "none",
                             border: "none",
-                            color: "#444",
+                            color: "#a898c8",
                             cursor: "pointer",
                             fontSize: 13,
                           }}
                         >
-                          ✕
+                          \u2715
                         </button>
                       </div>
                     </div>
@@ -1243,18 +1133,59 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
             )}
           </div>
         )}
-
         {view === "pomodoro" && (
           <div style={{ textAlign: "center" }}>
             <div
               style={{
                 fontSize: 10,
-                color: "#444",
+                color: "#a898c8",
                 letterSpacing: "0.14em",
-                marginBottom: 20,
+                marginBottom: 6,
               }}
             >
-              TEKNIK POMODORO — FOKUS 25 MENIT
+              \u26A1 MODE KOMPE \u2014 GAS FOKUS!
+            </div>
+            <div
+              style={{
+                fontSize: 28,
+                fontWeight: 800,
+                color: "#a898c8",
+                marginBottom: 20,
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {fmt2(now.getHours())}:{fmt2(now.getMinutes())}:{fmt2(now.getSeconds())}
+            </div>
+
+            <div
+              style={{
+                ...S.card,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 16,
+              }}
+            >
+              <span style={{ ...S.lbl, marginBottom: 0 }}>Durasi</span>
+              <input
+                type="number"
+                min={1}
+                max={180}
+                value={durasi}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value) || 1;
+                  setDurasi(Math.min(Math.max(v, 1), 180));
+                }}
+                style={{
+                  ...S.inp,
+                  width: 70,
+                  textAlign: "center",
+                  fontSize: 16,
+                  fontWeight: 700,
+                }}
+                disabled={pomoRun}
+              />
+              <span style={{ fontSize: 12, color: "#c8c0e0" }}>menit</span>
             </div>
 
             <div
@@ -1270,7 +1201,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                   cy={cy}
                   r={r}
                   fill="none"
-                  stroke="#1c1c30"
+                  stroke="#2a2a40"
                   strokeWidth={8}
                 />
                 <circle
@@ -1278,7 +1209,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                   cy={cy}
                   r={r}
                   fill="none"
-                  stroke={pomoMode === "work" ? "#a78bfa" : "#6ddb8e"}
+                  stroke="#ff8c42"
                   strokeWidth={8}
                   strokeDasharray={`${dash} ${circ}`}
                   strokeLinecap="round"
@@ -1299,7 +1230,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                   style={{
                     fontSize: 22,
                     fontWeight: 800,
-                    color: pomoMode === "work" ? "#a78bfa" : "#6ddb8e",
+                    color: "#ff8c42",
                   }}
                 >
                   {fmt2(Math.floor(pomoSec / 60))}:{fmt2(pomoSec % 60)}
@@ -1307,18 +1238,18 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                 <div
                   style={{
                     fontSize: 9,
-                    color: "#444",
+                    color: "#a898c8",
                     letterSpacing: "0.1em",
                   }}
                 >
-                  {pomoMode === "work" ? "FOKUS" : "ISTIRAHAT"}
+                  {pomoRun ? "FOKUS!" : "SIAP"}
                 </div>
               </div>
             </div>
 
-            <div style={{ fontSize: 12, color: "#444", marginBottom: 20 }}>
+            <div style={{ fontSize: 12, color: "#c8c0e0", marginBottom: 20 }}>
               Sesi selesai hari ini:{" "}
-              <strong style={{ color: "#a78bfa" }}>{pomoCount}</strong>
+              <strong style={{ color: "#ff8c42" }}>{pomoCount}</strong>
             </div>
 
             <div
@@ -1326,64 +1257,27 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                 display: "flex",
                 justifyContent: "center",
                 gap: 10,
-                marginBottom: 16,
-              }}
-            >
-              <button
-                style={{
-                  ...S.btn(pomoMode === "work" ? "#a78bfa" : "#6ddb8e", 14),
-                  padding: "12px 24px",
-                  fontSize: 14,
-                }}
-                onClick={() => setPomoRun((r) => !r)}
-              >
-                {pomoRun ? "⏸ Pause" : "▶ Mulai"}
-              </button>
-              <button
-                style={{ ...S.btn("#444") }}
-                onClick={() => {
-                  setPomoRun(false);
-                  setPomoMode("work");
-                  setPomoSec(POMO_WORK);
-                }}
-              >
-                ↺
-              </button>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                justifyContent: "center",
                 marginBottom: 20,
               }}
             >
               <button
                 style={{
-                  ...S.btn(pomoMode === "work" ? "#a78bfa" : "#333", 11),
-                  padding: "6px 14px",
+                  ...S.btn("#ff8c42", 14),
+                  padding: "12px 24px",
+                  fontSize: 14,
                 }}
-                onClick={() => {
-                  setPomoRun(false);
-                  setPomoMode("work");
-                  setPomoSec(POMO_WORK);
-                }}
+                onClick={() => setPomoRun((r) => !r)}
               >
-                25m Fokus
+                {pomoRun ? "\u23F8 Pause" : "\u25B6 Mulai"}
               </button>
               <button
-                style={{
-                  ...S.btn(pomoMode === "break" ? "#6ddb8e" : "#333", 11),
-                  padding: "6px 14px",
-                }}
+                style={{ ...S.btn("#6a5a88") }}
                 onClick={() => {
                   setPomoRun(false);
-                  setPomoMode("break");
-                  setPomoSec(POMO_BREAK);
+                  setPomoSec(durasi * 60);
                 }}
               >
-                5m Istirahat
+                \u21BA
               </button>
             </div>
 
@@ -1391,29 +1285,29 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
               <div
                 style={{
                   fontSize: 10,
-                  color: "#444",
+                  color: "#a898c8",
                   fontWeight: 700,
                   letterSpacing: "0.12em",
                   marginBottom: 10,
                 }}
               >
-                💡 TIPS POMODORO
+                \uD83D\uDCA1 TIPS FOKUS
               </div>
               {[
-                "Singkirkan HP & notifikasi selama sesi",
-                "Tiap 4 sesi, ambil istirahat 15-30 menit",
-                "Tulis dulu apa yang mau dikerjain sebelum mulai",
-                "Kalau kebelet ide lain, catat dulu terus lanjut",
+                "Matikan notifikasi HP & laptop selama sesi",
+                "Satu sesi, satu tugas — jangan multitasking",
+                "Pasang musik instrumental atau white noise",
+                "Target kecil: 1 sesi selesaikan 1 soal",
                 "Konsisten lebih penting dari durasi",
               ].map((t, i) => (
                 <div
                   key={i}
                   style={{
                     fontSize: 12,
-                    color: "#555",
+                    color: "#c8c0e0",
                     marginBottom: 6,
                     paddingLeft: 10,
-                    borderLeft: "2px solid #1c1c30",
+                    borderLeft: "2px solid #2a2a40",
                   }}
                 >
                   {t}
@@ -1422,13 +1316,12 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
             </div>
           </div>
         )}
-
         {view === "stats" && (
           <div>
             <div
               style={{
                 fontSize: 10,
-                color: "#444",
+                color: "#a898c8",
                 letterSpacing: "0.14em",
                 marginBottom: 16,
               }}
@@ -1449,9 +1342,9 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                 { label: "Selesai", val: done.length, c: "#6ddb8e" },
                 { label: "Pending", val: pending.length, c: "#ff5a5a" },
                 {
-                  label: "Total Pomodoro",
+                  label: "Sesi Kompe",
                   val: stats.pomoTotal,
-                  c: "#ffb347",
+                  c: "#ff8c42",
                 },
               ].map((x) => (
                 <div
@@ -1462,7 +1355,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                   <div
                     style={{
                       fontSize: 10,
-                      color: "#444",
+                      color: "#a898c8",
                       marginTop: 4,
                       letterSpacing: "0.1em",
                       textTransform: "uppercase",
@@ -1479,7 +1372,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                 <div
                   style={{
                     fontSize: 10,
-                    color: "#444",
+                    color: "#a898c8",
                     fontWeight: 700,
                     letterSpacing: "0.12em",
                     marginBottom: 10,
@@ -1492,7 +1385,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                     style={{
                       flex: 1,
                       height: 8,
-                      background: "#141420",
+                      background: "#1e1e34",
                       borderRadius: 4,
                       overflow: "hidden",
                     }}
@@ -1524,7 +1417,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                 <div
                   style={{
                     fontSize: 10,
-                    color: "#444",
+                    color: "#a898c8",
                     fontWeight: 700,
                     letterSpacing: "0.12em",
                     marginBottom: 12,
@@ -1544,14 +1437,14 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                       <span style={{ fontSize: 12, fontWeight: 600 }}>
                         {s.name}
                       </span>
-                      <span style={{ fontSize: 11, color: "#555" }}>
+                      <span style={{ fontSize: 11, color: "#c8c0e0" }}>
                         {s.done}/{s.total}
                       </span>
                     </div>
                     <div
                       style={{
                         height: 5,
-                        background: "#141420",
+                        background: "#1e1e34",
                         borderRadius: 3,
                         overflow: "hidden",
                       }}
@@ -1575,11 +1468,11 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                 style={{
                   ...S.card,
                   textAlign: "center",
-                  color: "#333",
+                  color: "#8a7fa0",
                   padding: "30px 0",
                 }}
               >
-                <div style={{ fontSize: 20 }}>▦</div>
+                <div style={{ fontSize: 20 }}>\u25A6</div>
                 <div style={{ fontSize: 12, marginTop: 8 }}>
                   Belum ada data. Tambah tugas dulu!
                 </div>
@@ -1587,172 +1480,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
             )}
           </div>
         )}
-
-        {view === "chat" && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              height: "calc(100vh - 200px)",
-              minHeight: 400,
-            }}
-          >
-            <div style={{ flex: 1, overflowY: "auto", marginBottom: 10 }}>
-              {chat.map((m, i) => (
-                <div
-                  key={i}
-                  className="msg-in"
-                  style={{
-                    marginBottom: 12,
-                    display: "flex",
-                    justifyContent:
-                      m.role === "user" ? "flex-end" : "flex-start",
-                  }}
-                >
-                  {m.role === "assistant" && (
-                    <div
-                      style={{
-                        width: 26,
-                        height: 26,
-                        borderRadius: "50%",
-                        background: "#a78bfa20",
-                        border: "1px solid #a78bfa40",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 10,
-                        color: "#a78bfa",
-                        marginRight: 8,
-                        flexShrink: 0,
-                        marginTop: 2,
-                      }}
-                    >
-                      ◈
-                    </div>
-                  )}
-                  <div
-                    style={{
-                      maxWidth: "84%",
-                      background:
-                        m.role === "user" ? "#a78bfa18" : "#0e0e1c",
-                      border: `1px solid ${m.role === "user" ? "#a78bfa35" : "#1c1c30"}`,
-                      borderRadius:
-                        m.role === "user"
-                          ? "12px 12px 3px 12px"
-                          : "12px 12px 12px 3px",
-                      padding: "10px 13px",
-                      fontSize: 13,
-                      lineHeight: 1.65,
-                      wordBreak: "break-word",
-                    }}
-                    dangerouslySetInnerHTML={{ __html: fmtMsg(m.content) }}
-                  />
-                </div>
-              ))}
-              {loading && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: "50%",
-                      background: "#a78bfa20",
-                      border: "1px solid #a78bfa40",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 10,
-                      color: "#a78bfa",
-                    }}
-                  >
-                    ◈
-                  </div>
-                  <div
-                    style={{
-                      background: "#0e0e1c",
-                      border: "1px solid #1c1c30",
-                      borderRadius: "12px 12px 12px 3px",
-                      padding: "12px 16px",
-                      display: "flex",
-                      gap: 4,
-                    }}
-                  >
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        style={{
-                          width: 7,
-                          height: 7,
-                          borderRadius: "50%",
-                          background: "#a78bfa",
-                          animation: `blink 1.2s infinite`,
-                          animationDelay: `${i * 0.2}s`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 6,
-                marginBottom: 8,
-                overflowX: "auto",
-                paddingBottom: 2,
-              }}
-            >
-              {[
-                "Tugas mendesak?",
-                "Bikin jadwal belajar",
-                "Tips konsentrasi",
-                "Bantu kerjain soal",
-                "Motivasi dong!",
-              ].map((q) => (
-                <button
-                  key={q}
-                  onClick={() => setInput(q)}
-                  style={{
-                    ...S.btn("#333", 10),
-                    whiteSpace: "nowrap",
-                    flexShrink: 0,
-                    padding: "5px 10px",
-                  }}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                ref={inputRef}
-                style={{ ...S.inp, flex: 1 }}
-                placeholder="Tanya apa aja..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-              />
-              <button
-                style={{
-                  ...S.btn("#a78bfa"),
-                  flexShrink: 0,
-                  opacity: loading || !input.trim() ? 0.4 : 1,
-                  padding: "9px 14px",
-                }}
-                onClick={sendMessage}
-                disabled={loading || !input.trim()}
-              >
-                ▶
-              </button>
-            </div>
-          </div>
-        )}
       </div>
-
       {/* Manage Subjects Modal */}
       {showManageSubjects && (
         <div
@@ -1789,7 +1517,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                 marginBottom: 14,
               }}
             >
-              ⚙ ATUR MATA KULIAH
+              \u2699 ATUR MATA KULIAH
             </div>
 
             <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
@@ -1804,7 +1532,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                 style={{ ...S.btn("#6ddb8e"), flexShrink: 0 }}
                 onClick={addSubject}
               >
-                ＋
+                \uFF0B
               </button>
             </div>
 
@@ -1817,7 +1545,7 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                     justifyContent: "space-between",
                     alignItems: "center",
                     padding: "8px 0",
-                    borderBottom: "1px solid #181828",
+                    borderBottom: "1px solid #2a2a40",
                   }}
                 >
                   <span style={{ fontSize: 13 }}>{s}</span>
@@ -1826,20 +1554,20 @@ Untuk tambah tugas: minta user klik "＋ Tugas" di tab Tugas. Jawab singkat tapi
                     style={{
                       background: "none",
                       border: "none",
-                      color: subjects.length <= 1 ? "#1c1c30" : "#ff5a5a",
+                      color: subjects.length <= 1 ? "#2a2a40" : "#ff5a5a",
                       cursor: subjects.length <= 1 ? "not-allowed" : "pointer",
                       fontSize: 13,
                     }}
                     disabled={subjects.length <= 1}
                   >
-                    ✕
+                    \u2715
                   </button>
                 </div>
               ))}
             </div>
 
             <button
-              style={{ ...S.btn("#444"), width: "100%", marginTop: 12 }}
+              style={{ ...S.btn("#6a5a88"), width: "100%", marginTop: 12 }}
               onClick={() => setShowManageSubjects(false)}
             >
               Tutup
