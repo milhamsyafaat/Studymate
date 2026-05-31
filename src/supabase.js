@@ -6,4 +6,17 @@ const supabaseAnonKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
   "sb_publishable_UIk9KBSva4_4ygnF1zJaLw_YiTcFObU";
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+let _supabase = null;
+
+export const getSupabase = () => {
+  if (!_supabase) {
+    try {
+      _supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        realtime: { enabled: false },
+      });
+    } catch {
+      _supabase = null;
+    }
+  }
+  return _supabase;
+};
