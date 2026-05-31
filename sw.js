@@ -1,5 +1,5 @@
 const CACHE = "studymate-v1";
-const URLS = ["/"];
+const URLS = ["."];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
