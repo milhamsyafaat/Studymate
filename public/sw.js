@@ -1,17 +1,11 @@
-const CACHE = "studymate-v2";
-const URLS = ["."];
+const CACHE = "studymate-v3";
 
-self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(URLS))
-  );
-  self.skipWaiting();
-});
+self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys().then((ks) =>
-      Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+      Promise.all(ks.map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -19,6 +13,12 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   e.respondWith(
-    caches.match(e.request).then((c) => c || fetch(e.request))
+    fetch(e.request)
+      .then((r) => {
+        const clone = r.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, clone));
+        return r;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
