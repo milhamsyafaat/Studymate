@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useRef } from "react";
-import { getDaysLeft, load, save, fmt2 } from "./utils.js";
+import { getDaysLeft, fmt2 } from "./utils.js";
+import { load, save } from "./db.js";
 
 const TASKS_KEY = "sm_tasks_v2";
 const STATS_KEY = "sm_stats_v2";
