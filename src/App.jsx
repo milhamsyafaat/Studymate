@@ -358,10 +358,10 @@ export default function App() {
   };
 
   const TABS = [
-    { id: "dashboard", icon: "\u2B21", label: "Home" },
-    { id: "tasks", icon: "\u2726", label: "Tugas" },
-    { id: "pomodoro", icon: "\u26A1", label: "Kompe" },
-    { id: "stats", icon: "\u25A6", label: "Statistik" },
+    { id: "dashboard", icon: "⬡", label: "Home" },
+    { id: "tasks", icon: "✦", label: "Tugas" },
+    { id: "pomodoro", icon: "⚡", label: "Kompe" },
+    { id: "stats", icon: "▦", label: "Statistik" },
   ];
 
   return (
@@ -384,7 +384,7 @@ export default function App() {
       <div style={S.hdr}>
         <div>
           <div style={{ fontSize: 17, fontWeight: 800, color: "#a78bfa", letterSpacing: "-0.02em" }}>
-            \u25C8 STUDYMATE
+            ◈ STUDYMATE
           </div>
           <div style={{ fontSize: 9, color: "#6a5a88", letterSpacing: "0.12em" }}>
             AI STUDY ASSISTANT
@@ -404,7 +404,7 @@ export default function App() {
                   fontWeight: 700,
                 }}
               >
-                \u26A0 {urgent.length} MENDESAK
+                ⚠ {urgent.length} MENDESAK
               </div>
             )}
             {overdue.length > 0 && (
@@ -419,7 +419,7 @@ export default function App() {
                   fontWeight: 700,
                 }}
               >
-                \u2715 {overdue.length} TELAT
+                ✕ {overdue.length} TELAT
               </div>
             )}
           </div>
@@ -512,7 +512,7 @@ export default function App() {
                     marginBottom: 10,
                   }}
                 >
-                  \u2715 TERLAMBAT \u2014 SEGERA SELESAIKAN
+                  ✕ TERLAMBAT — SEGERA SELESAIKAN
                 </div>
                 {overdue.map((t) => (
                   <div
@@ -553,7 +553,7 @@ export default function App() {
                     marginBottom: 10,
                   }}
                 >
-                  \u26A0 DEADLINE MENDESAK (\u22643 HARI)
+                  ⚠ DEADLINE MENDESAK (≤3 HARI)
                 </div>
                 {urgent.map((t) => (
                   <div
@@ -606,7 +606,7 @@ export default function App() {
                   marginBottom: 12,
                 }}
               >
-                \uD83D\uDCCB TUGAS AKTIF TERDEKAT
+                📋 TUGAS AKTIF TERDEKAT
               </div>
               {pending.length === 0 ? (
                 <div
@@ -617,7 +617,7 @@ export default function App() {
                     padding: "20px 0",
                   }}
                 >
-                  Semua beres! \uD83C\uDF89
+                  Semua beres! 🎉
                 </div>
               ) : (
                 pending
@@ -666,25 +666,25 @@ export default function App() {
                   setShowForm(true);
                 }}
               >
-                \uFF0B Tambah Tugas
+                ＋ Tambah Tugas
               </button>
               <button
                 style={{ ...S.btn("#ff8c42"), textAlign: "left" }}
                 onClick={() => setView("pomodoro")}
               >
-                \u26A1 Mode Kompe
+                ⚡ Mode Kompe
               </button>
               <button
                 style={{ ...S.btn("#6ddb8e"), textAlign: "left" }}
                 onClick={() => setView("stats")}
               >
-                \u25A6 Lihat Statistik
+                ▦ Lihat Statistik
               </button>
               <button
                 style={{ ...S.btn("#a78bfa"), textAlign: "left" }}
                 onClick={() => setShowManageSubjects(true)}
               >
-                \u2699 Atur Matkul
+                ⚙ Atur Matkul
               </button>
             </div>
           </div>
@@ -708,7 +708,7 @@ export default function App() {
                     marginBottom: 14,
                   }}
                 >
-                  {editId ? "\u270E EDIT TUGAS" : "\uFF0B TUGAS BARU"}
+                  {editId ? "✎ EDIT TUGAS" : "＋ TUGAS BARU"}
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
@@ -748,7 +748,7 @@ export default function App() {
                       {subjects.map((s) => (
                         <option key={s}>{s}</option>
                       ))}
-                      <option value="__add__">\u2795 Tambah Baru...</option>
+                      <option value="__add__">➕ Tambah Baru...</option>
                     </select>
                   </div>
                   <div>
@@ -804,7 +804,7 @@ export default function App() {
                       }}
                     >
                       <span style={{ fontSize: 12, color: "#c8c0e0", flex: 1 }}>
-                        \u2022 {s.text}
+                        • {s.text}
                       </span>
                       <button
                         onClick={() => removeSubtask(i)}
@@ -816,7 +816,7 @@ export default function App() {
                           fontSize: 12,
                         }}
                       >
-                        \u2715
+                        ✕
                       </button>
                     </div>
                   ))}
@@ -832,7 +832,7 @@ export default function App() {
                       style={{ ...S.btn("#a78bfa"), flexShrink: 0 }}
                       onClick={addSubtask}
                     >
-                      \uFF0B
+                      ＋
                     </button>
                   </div>
                 </div>
@@ -869,7 +869,7 @@ export default function App() {
             <div style={{ marginBottom: 10 }}>
               <input
                 style={{ ...S.inp, marginBottom: 8 }}
-                placeholder={"\uD83D\uDD0D Cari tugas..."}
+                placeholder={"🔍 Cari tugas..."}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -908,7 +908,7 @@ export default function App() {
                     }}
                     onClick={() => setShowForm(true)}
                   >
-                    \uFF0B BARU
+                    ＋ BARU
                   </button>
                 )}
               </div>
@@ -922,7 +922,7 @@ export default function App() {
                   padding: "30px 0",
                 }}
               >
-                <div style={{ fontSize: 20 }}>\u2726</div>
+                <div style={{ fontSize: 20 }}>✦</div>
                 <div style={{ fontSize: 12, marginTop: 8 }}>
                   Tidak ada tugas
                 </div>
@@ -973,7 +973,7 @@ export default function App() {
                           marginTop: 2,
                         }}
                       >
-                        {t.done && "\u2713"}
+                        {t.done && "✓"}
                       </button>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
@@ -1082,7 +1082,7 @@ export default function App() {
                                     flexShrink: 0,
                                   }}
                                 >
-                                  {s.done && "\u2713"}
+                                  {s.done && "✓"}
                                 </button>
                                 <span
                                   style={{
@@ -1111,7 +1111,7 @@ export default function App() {
                             fontSize: 13,
                           }}
                         >
-                          \u270E
+                          ✎
                         </button>
                         <button
                           onClick={() => deleteTask(t.id)}
@@ -1123,7 +1123,7 @@ export default function App() {
                             fontSize: 13,
                           }}
                         >
-                          \u2715
+                          ✕
                         </button>
                       </div>
                     </div>
@@ -1143,7 +1143,7 @@ export default function App() {
                 marginBottom: 6,
               }}
             >
-              \u26A1 MODE KOMPE \u2014 GAS FOKUS!
+              ⚡ MODE KOMPE — GAS FOKUS!
             </div>
             <div
               style={{
@@ -1268,7 +1268,7 @@ export default function App() {
                 }}
                 onClick={() => setPomoRun((r) => !r)}
               >
-                {pomoRun ? "\u23F8 Pause" : "\u25B6 Mulai"}
+                {pomoRun ? "⏸ Pause" : "▶ Mulai"}
               </button>
               <button
                 style={{ ...S.btn("#6a5a88") }}
@@ -1277,7 +1277,7 @@ export default function App() {
                   setPomoSec(durasi * 60);
                 }}
               >
-                \u21BA
+                ↺
               </button>
             </div>
 
@@ -1291,7 +1291,7 @@ export default function App() {
                   marginBottom: 10,
                 }}
               >
-                \uD83D\uDCA1 TIPS FOKUS
+                💡 TIPS FOKUS
               </div>
               {[
                 "Matikan notifikasi HP & laptop selama sesi",
@@ -1472,7 +1472,7 @@ export default function App() {
                   padding: "30px 0",
                 }}
               >
-                <div style={{ fontSize: 20 }}>\u25A6</div>
+                <div style={{ fontSize: 20 }}>▦</div>
                 <div style={{ fontSize: 12, marginTop: 8 }}>
                   Belum ada data. Tambah tugas dulu!
                 </div>
@@ -1517,7 +1517,7 @@ export default function App() {
                 marginBottom: 14,
               }}
             >
-              \u2699 ATUR MATA KULIAH
+              ⚙ ATUR MATA KULIAH
             </div>
 
             <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
@@ -1532,7 +1532,7 @@ export default function App() {
                 style={{ ...S.btn("#6ddb8e"), flexShrink: 0 }}
                 onClick={addSubject}
               >
-                \uFF0B
+                ＋
               </button>
             </div>
 
@@ -1560,7 +1560,7 @@ export default function App() {
                     }}
                     disabled={subjects.length <= 1}
                   >
-                    \u2715
+                    ✕
                   </button>
                 </div>
               ))}
